@@ -17,7 +17,7 @@ jobs:
           python-version: ${{ matrix.python }}
       - name: Install
         run: |
-          uv venv
+          uv venv --clear
           uv pip install -e ./academy-core -e ".[api]" pytest pytest-asyncio ruff
       - name: Lint
         run: .venv/bin/ruff check .
