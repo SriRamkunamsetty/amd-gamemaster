@@ -1,0 +1,1 @@
+{"rules": "Unknown puzzle. Reach the exit.", "observation": "#####\n#@..E#\n#####", "legal_actions": ["left", "right"], "time_budget": 2}

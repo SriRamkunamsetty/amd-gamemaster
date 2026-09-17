@@ -1,0 +1,31 @@
+# Production deployment on an AMD GPU host (ROCm drivers installed).
+#   docker compose up -d --build
+# GameMaster API -> http://localhost:8081/v1/act
+# Secrets come from the environment / .env at *runtime* only; nothing is baked into images.
+
+x-rocm: &rocm
+  devices: ["/dev/kfd", "/dev/dri"]
+  group_add: ["video", "render"]
+  security_opt: ["seccomp=unconfined"]
+  shm_size: "16g"
+  ipc: host
+  restart: unless-stopped
+
+services:
+  gamemaster:
+    <<: *rocm
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        POLICY_DIR: "${GAMEMASTER_POLICY_DIR:-}"
+    image: gamemaster:latest
+    environment:
+      APP_SERVE_CMD: "uvicorn gamemaster.service:app --host 0.0.0.0 --port 8081 --workers 1"
+      GAMEMASTER_API_KEYS: "${GAMEMASTER_API_KEYS:-}"
+      LLM_VRAM_BUDGET_GIB: "${GAMEMASTER_VRAM_GIB:-12}"
+    ports: ["8081:8081"]
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8081/healthz')"]
+      interval: 30s
+      start_period: 600s
