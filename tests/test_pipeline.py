@@ -109,3 +109,12 @@ def test_cli_harness_writes_output(tmp_path, monkeypatch):
     assert cli.main(["--input-state", str(inp), "--output-dir", str(tmp_path), "--time-budget", "1.5"]) == 0
     out = json.loads((tmp_path / "state_01_output.json").read_text())
     assert out["action"] == "3"
+
+
+def test_cli_harness_ignores_unknown_flags(tmp_path, monkeypatch):
+    monkeypatch.setenv("LLM_ENABLED", "false")
+    inp = tmp_path / "state_02.json"
+    inp.write_text(json.dumps({"rules": "secret", "observation": "???", "legal_actions": ["a", "b"]}))
+    assert cli.main(["--input-state", str(inp), "--output-dir", str(tmp_path), "--time-budget", "1",
+                     "--unexpected", "flag"]) == 0
+    assert json.loads((tmp_path / "state_02_output.json").read_text())["action"] in {"a", "b"}

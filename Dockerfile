@@ -10,6 +10,7 @@ FROM ${BASE_IMAGE}
 
 ARG INSTALL_VLLM=1
 ARG VLLM_SPEC="vllm"
+ARG PIP_EXTRA_ARGS=""
 # Local directory (inside the build context) holding the merged fine-tuned policy; empty -> download MODEL_ID
 ARG POLICY_DIR=""
 ARG MODEL_ID=Qwen/Qwen3-1.7B
@@ -30,10 +31,18 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /app
 
+# The base image ships a ROCm build of torch. Installing almost any torch-dependent package
+# (transformers, accelerate, vLLM, ...) can make pip silently replace it with a CUDA build, which
+# then fails at runtime with errors that never mention torch (the official challenge doc measured
+# exactly this). Pin the whole torch stack so pip refuses -- loudly, at build time -- instead.
+RUN python3 -m pip freeze | grep -iE '^(torch|torchvision|torchaudio|triton|pytorch-triton-rocm)==' > /etc/torch-constraints.txt; \
+    cat /etc/torch-constraints.txt
+ENV PIP_CONSTRAINT=/etc/torch-constraints.txt
+
 COPY requirements.txt /app/requirements.txt
 COPY docker/requirements-gpu.txt /tmp/requirements-gpu.txt
 RUN python3 -m pip install -r /app/requirements.txt -r /tmp/requirements-gpu.txt \
- && if [ "$INSTALL_VLLM" = "1" ]; then python3 -m pip install "$VLLM_SPEC" || echo "WARN: vLLM install failed; hf backend will be used"; fi
+ && if [ "$INSTALL_VLLM" = "1" ]; then python3 -m pip install $PIP_EXTRA_ARGS "$VLLM_SPEC" || echo "WARN: vLLM install failed; hf backend will be used"; fi
 
 COPY ${POLICY_DIR:-docker/empty}/ /models/policy/
 RUN if [ ! -f /models/policy/config.json ]; then \
@@ -46,6 +55,9 @@ COPY src /opt/src/gamemaster/src
 RUN python3 -m pip install --no-deps /opt/src/academy-core /opt/src/gamemaster \
  && cp /opt/src/gamemaster/app.py /app/app.py \
  && mkdir -p /app/input /app/output
+
+# Fail the build if anything above swapped the ROCm torch for a CUDA build (official checklist item).
+RUN python3 -c "import sys, torch; print('torch', torch.__version__, 'hip', torch.version.hip); sys.exit(0 if torch.version.hip else 1)"
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=600s CMD test -f /tmp/academy_ready || exit 1
 ENTRYPOINT ["python3", "-m", "academy_core.server.entrypoint"]

@@ -26,13 +26,15 @@ from academy_core.harness import read_input_file
 
 
 def _act(argv: list[str]) -> int:
-    p = argparse.ArgumentParser(prog="gamemaster act")
+    p = argparse.ArgumentParser(prog="gamemaster act", allow_abbrev=False)
     p.add_argument("--input-state", "--input-file", "--input", "--input-json", dest="input", required=True)
     p.add_argument("--output-dir", default=os.getenv("HARNESS_OUTPUT_DIR", "/app/output"))
     p.add_argument("--output-file", default=None)
     p.add_argument("--time-budget", type=float, default=None)
     p.add_argument("--agent", default=None)
-    args = p.parse_args(argv)
+    args, unknown = p.parse_known_args(argv)
+    if unknown:  # a surplus flag from the harness must not crash the run (a crash scores zero)
+        print(f"gamemaster: ignoring unrecognized arguments: {unknown}", file=sys.stderr)
 
     out = Path(args.output_file) if args.output_file else output_path_for(args.input, args.output_dir)
     payload = read_input_file(args.input)

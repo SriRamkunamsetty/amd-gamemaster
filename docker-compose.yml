@@ -1,6 +1,5 @@
 # Production deployment on an AMD GPU host (ROCm drivers installed).
 #   docker compose up -d --build
-# GameMaster API -> http://localhost:8081/v1/act
 # Secrets come from the environment / .env at *runtime* only; nothing is baked into images.
 
 x-rocm: &rocm

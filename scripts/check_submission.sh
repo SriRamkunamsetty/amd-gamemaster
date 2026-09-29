@@ -30,6 +30,12 @@ limit=$((60 * 1024 * 1024 * 1024))
 [ "$size" -le "$limit" ] || fail "image is $((size / 1024 / 1024 / 1024)) GiB > 60 GiB"
 pass "size $((size / 1024 / 1024)) MiB"
 
+echo "== 2b. torch is still the ROCm build (pip can silently swap in a CUDA build)"
+docker run --rm --entrypoint python3 "$IMAGE" -c \
+  "import sys, torch; print(torch.__version__, 'hip', torch.version.hip); sys.exit(0 if torch.version.hip else 1)" \
+  || fail "torch is not a ROCm build any more: a pip install replaced it"
+pass "torch is the ROCm build"
+
 echo "== 3. secrets scan"
 if docker run --rm --entrypoint sh "$IMAGE" -c 'ls -a /app; find / -xdev \( -name ".env" -o -name "*.pem" -o -name "id_rsa" \) 2>/dev/null | grep -v -E "^/(proc|sys|usr/lib|usr/share|etc/ssl)" | head' | grep -E "\.env|\.pem|id_rsa"; then
   fail "possible secret files found in image"

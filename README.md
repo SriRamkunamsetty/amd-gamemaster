@@ -93,6 +93,7 @@ Every stage is idempotent and writes to persistent storage, so the pipeline resu
 * **New process per item:** the entrypoint starts the model server once during startup, and `app.py` is a thin client.
 * **Peak VRAM between 1 and 48 GiB:** search runs on CPU, so the image serves the fine-tuned policy with vLLM (`LLM_VRAM_BUDGET_GIB=12`, converted into a fraction of the detected card), and the hybrid agent uses it.
 * **Always a valid output:** a placeholder output is written first, and a watchdog guards against hangs.
+* **The torch trap (from the published Mini-Challenge 3 spec):** installing almost any torch-dependent package can make pip silently replace the base image's ROCm torch with a CUDA build, which then fails with errors that never mention torch. The Dockerfiles pin the whole torch stack with `PIP_CONSTRAINT` (so pip refuses instead of replacing it) and end with a build step that fails unless `torch.version.hip` is set; the notebook setup uses a `--system-site-packages` venv for the same reason (`pip install --target` would put a CUDA torch first on `PYTHONPATH`); `check_submission.sh` re-checks it on the built image.
 
 ```bash
 docker build --build-arg POLICY_DIR=checkpoints/connect4-merged -t <registry>/amd-gamemaster:v1 .
